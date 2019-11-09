@@ -1,16 +1,26 @@
-# install.packages("Rcpp", dependencies = TRUE)
-# install.packages("pkgconfig", dependencies = TRUE)
-# install.packages("pdftools")
-# install.packages("tibble")
-# install.packages("tidytext")
-# install.packages("readr")
-# install.packages("tm")
-# install.packages("wordcloud")
-# install.packages("ggplot2")
-# install.packages("tidyr")
-# install.packages("igraph")
-# install.packages("ggraph")
-# install.packages("widyr")
+
+#install.packages("installr")
+#library(installr)
+#updateR()
+
+
+# install.packages("stringr", repos='http://cran.us.r-project.org')
+# library("stringr")
+#
+install.packages("pdftools")
+install.packages("tibble")
+install.packages("tidytext")
+install.packages("readr")
+install.packages("tm")
+install.packages("wordcloud")
+install.packages("ggplot2")
+install.packages("tidyr")
+install.packages("igraph")
+install.packages("ggraph")
+install.packages("widyr")
+install.packages("topicmodels")
+install.packages("ldatuning")
+
 
 library(pdftools)
 library(tibble)
@@ -24,22 +34,22 @@ library(tidyr)
 library(igraph)
 library(ggraph)
 library(widyr)
+library(stringr)
+library(topicmodels)
+library(ldatuning)
 
 stopwords_pt <- read_delim("C:\\Users\\Aluno\\Desktop\\stopwords.csv",
                            ";",escape_double = FALSE, trim_ws = TRUE)
 
-affin_pt <- read_delim("C:\\Users\\Aluno\\Desktop\\affin_pt.csv",
-                           ";",escape_double = FALSE, trim_ws = TRUE)
+stopwords_pt <- add_row(stopwords_pt, word = "disse")
+stopwords_pt <- add_row(stopwords_pt, word = "pode")
+stopwords_pt <- add_row(stopwords_pt, word = "poderia")
+stopwords_pt <- add_row(stopwords_pt, word = "fazer")
 
-
-text <- paste(pdf_text("C:\\Users\\Aluno\\Desktop\\minhabase\\conae\\doc_referencia_conae_2018.pdf")," ")
+text <- paste(pdf_text("C:\\Users\\Aluno\\Downloads\\Livro.pdf")," ")
 text <- unlist(strsplit(text,"[.]"))
-text <- tibble(sentence = text) 
-
-text$sentence <- text$sentence %>%
-  removePunctuation() %>%
-  stripWhitespace() %>%
-  removeNumbers()
+text <- tibble(sentence = text)
+text$sentence <- str_replace(text$sentence,"tam-\nbém", "também")
 
 tokens <- text %>%
   mutate(linenumber = row_number()) %>%
@@ -53,74 +63,69 @@ wordcloud(tokens_count$word, tokens_count$n,
           max.words = 50, scale = c(2,0.5),
           colors = brewer.pal(10, "Spectral"))
 
+numRegister <- 18
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(numRegister)
 tokens_count %>%
   mutate(word = reorder(word,n)) %>%
-  head(9) %>%
+  head(numRegister) %>%
   ggplot(aes(word,n,fill=factor(word)))+
-    scale_fill_brewer(palette="Purples")+
-    geom_col()+
-    xlab(NULL)+
-    coord_flip()
+  scale_fill_manual(values = mycolors) +
+  geom_col()+
+  xlab(NULL)+
+  coord_flip()
 
 
 bigrams <- text %>%
   unnest_tokens(bigram, sentence, token = "ngrams", n = 2) %>%
   separate(bigram,c("word1","word2"),sep = " ") %>%
   filter(!word1 %in% as.vector(t(stopwords_pt$word))) %>%
-  filter(!word2 %in% as.vector(t(stopwords_pt$word))) %>% 
+  filter(!word2 %in% as.vector(t(stopwords_pt$word))) %>%
   unite(bigram,word1,word2,sep = " ") %>%
   count(bigram, sort = TRUE)
 
-bigrams_graph <- bigrams %>%
-  separate(bigram,c("word1","word2"), sep = " ") %>%
-  filter(n>5) %>%
-  graph_from_data_frame()
+numRegister <- 15
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(numRegister)
+bigrams %>%
+  mutate(bigram = reorder(bigram,n)) %>%
+  head(numRegister) %>%
+  ggplot(aes(bigram,n,fill=factor(bigram)))+
+  scale_fill_manual(values = mycolors) +
+  geom_col()+
+  xlab(NULL)+
+  coord_flip()
 
-set.seed(2019)
-a <- grid::arrow(type = "closed", 
-                 length = unit(.15,"inches"))
-ggraph(bigrams_graph, layout = "fr")+
-  geom_edge_link(aes(edge_alpha = n), 
-                 show.legend = FALSE,
-                 arrow = a,
-                 end_cap = circle(.07,"inches"))+
-  geom_node_point(color="lightblue",size=5)+
-  geom_node_text(aes(label=name), vjust = 1, hjust = 1)+
-  theme_void()
 
 trigrams <- text %>%
   unnest_tokens(trigram, sentence, token = "ngrams", n = 3) %>%
   separate(trigram,c("word1","word2","word3"),sep = " ") %>%
   filter(!word1 %in% as.vector(t(stopwords_pt$word))) %>%
-  filter(!word3 %in% as.vector(t(stopwords_pt$word))) %>% 
+  filter(!word3 %in% as.vector(t(stopwords_pt$word))) %>%
   unite(trigram,word1,word2,word3,sep = " ") %>%
   count(trigram, sort = TRUE)
 
-trigrams_graph <- trigrams %>%
-  separate(trigram,c("word1","word2","word3"), sep = " ") %>%
-  filter(n>3) %>%
-  graph_from_data_frame()
-
-ggraph(trigrams_graph, layout = "fr")+
-  geom_edge_link(aes(edge_alpha = n), 
-                 show.legend = FALSE,
-                 arrow = a,
-                 end_cap = circle(.07,"inches"))+
-  geom_node_point(color="lightblue",size=5)+
-  geom_node_text(aes(label=name), vjust = 1, hjust = 1)+
-  theme_void()
+numRegister <- 15
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(numRegister)
+trigrams %>%
+  mutate(bigram = reorder(trigram,n)) %>%
+  head(numRegister) %>%
+  ggplot(aes(bigram,n,fill=factor(trigram)))+
+  scale_fill_manual(values = mycolors) +
+  geom_col()+
+  xlab(NULL)+
+  coord_flip()
 
 word_cors <- tokens %>%
   group_by(word) %>%
   filter(n()>3) %>%
   pairwise_cor(word,linenumber,sort = TRUE)
-  
+
+
 word_cors %>%
   filter(correlation != Inf) %>%
   filter(correlation > .6) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr")+
-  geom_edge_link(aes(edge_alpha = correlation), 
+  geom_edge_link(aes(edge_alpha = correlation),
                  show.legend = FALSE,
                  arrow = a,
                  end_cap = circle(.07,"inches"))+
@@ -128,12 +133,120 @@ word_cors %>%
   geom_node_text(aes(label=name), vjust = 1, hjust = 1)+
   theme_void()
 
+word_cors %>%
+  filter(correlation != Inf) %>%
+  filter(correlation > .6) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr")+
+  geom_edge_link(aes(edge_alpha = correlation),
+                 show.legend = FALSE,
+                 arrow = a,
+                 end_cap = circle(.07,"inches"))+
+  geom_node_point(color="#CC00AA",size=5)+
+  geom_node_text(aes(label=name), vjust = 1, hjust = 1)+
+  theme_void()
+
+
+
+
+# Aula 18/10/2019 - Análise de Sentimentos
+
+# Carregar arquivo com as palavras e seus valores
+affin_pt <- read_delim("C:\\Users\\Aluno\\Desktop\\affin_pt.csv",
+                       ";",escape_double = FALSE, trim_ws = TRUE)
+
+# Sentimento por linhas
 affin <- tokens %>%
   inner_join(affin_pt) %>%
-  count(index=linenumber %% 80, sentiment) %>%
+  count(index=linenumber %% 5000, sentiment) %>%
   spread(sentiment,n,fill=0) %>%
-  mutate(sentiment = positivo - negativo) #%>%
-  #mutate(sentiment = sign(sentiment)*log(abs(sentiment)+1))
+  mutate(sentiment = positivo - negativo)
 
+
+# Gráfico
 ggplot(affin, aes(index,sentiment))+
   geom_col(show.legend = TRUE)
+
+# Sentimento Geral
+affin2 <- tokens %>%
+  inner_join(affin_pt) %>%
+  count(index=linenumber %% 1000, sentiment) %>%
+  spread(sentiment,n,fill=0) %>%
+  mutate(sentiment = positivo - negativo)
+vsentiment <- affin$sentiment # transforma a coluna em vetor
+saldo_sentiment <- sum(vsentiment) # tira o saldo final do vetor
+
+result <- sum(affin$sentiment) # saldo do vetor
+
+
+# Sentimento Geral da Professora
+affin3 <- tokens %>%
+  inner_join(affin_pt) %>%
+  count(index=linenumber %% 1000, sentiment) %>%
+  spread(sentiment,n,fill=0) %>%
+  summarise(positivi=sum(positivo), negativo=sum(negativo))
+
+
+# Da forma anterior fica muito difícil se analisar o gráfico.
+# Abaixo iremos agrupar as sentençcas
+
+affin <- tokens %>%
+  inner_join(affin_pt) %>%
+  count(index=linenumber %/% 50, sentiment) %>% # Clocando o %/%, a / divide (agrupa)
+  spread(sentiment,n,fill=0) %>%
+  mutate(sentiment = positivo - negativo)
+
+# Gráfico
+ggplot(affin, aes(index,sentiment))+
+  geom_col(show.legend = TRUE)
+
+
+# Análise de tópicos
+
+dtm <- tokens %>%
+  count(linenumber,word, sort = TRUE) %>%
+  cast_dtm(linenumber, word,n)
+
+
+
+result <- FindTopicsNumber(
+  dtm,
+  topics =  seq(from = 2, to = 10, by = 1),
+  metrics = c("Arun2010", "Deveaud2014"),
+  method = "Gibbs",
+  control = list(seed = 77),
+  mc.cores = 2L,
+  verbose = TRUE
+)
+
+FindTopicsNumber_plot(result)
+
+# Latente Dirichlet Allocation - Separa o texto por assuntos
+corpus_lda <- dtm %>%
+  LDA(k=10,control=list(seed=1234))
+
+get_terms(corpus_lda, 15)
+
+corpus_topics <- tidy(corpus_lda,matrix="beta")
+corpus_top_terms  <- corpus_topics %>%
+  group_by(topic) %>%
+  top_n(15,beta) %>%
+  arrange(topic, -beta) %>%
+  do(head(., n = 15)) %>%
+  ungroup() %>%
+  mutate(term=reorder(term,beta)) %>%
+  mutate(order = row_number())
+
+corpus_top_terms %>%
+  ggplot(aes(order, beta, fill = factor(topic))) + 
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free", nrow = 3) + 
+  xlab("Termos") + 
+  ylab("Beta") +
+  scale_x_continuous(
+    breaks = corpus_top_terms$order,
+    labels = corpus_top_terms$term,
+    expand = c(0,0),
+    trans = "reverse"
+  )+
+  coord_flip()
